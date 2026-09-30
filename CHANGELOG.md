@@ -4,7 +4,7 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.0] — 2026-09-19
+## [1.1.0] — 2026-09-30
 
 First release published as an installable dsh bundle.
 
@@ -32,6 +32,9 @@ First release published as an installable dsh bundle.
 - The example debug keystore is committed rather than ignored. Every build signs
   with the same certificate, which is what makes `install -r` upgrades work
   instead of failing with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`.
+- `npm test` no longer quotes the test glob. Quoted, the pattern only works on
+  Node 21+ (which expands globs itself); unquoted, a POSIX shell expands it and
+  the suite also runs on the declared Node 20 floor.
 
 ## [1.0.0] — 2026-09-19
 

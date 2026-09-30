@@ -106,7 +106,9 @@ App 里有两条会失败的路径，都是真会写出来的那种错：
 原因有两个，都被这次验证暴露出来：
 
 1. **构建脚本把签名密钥放在了每次都会清空的 `build/` 里** → 每次构建生成新密钥。
-   现在密钥固定落在 `examples/dorm-duty/debug.keystore`。
+   现在密钥固定落在 `examples/dorm-duty/debug.keystore`，并且**已随仓库提交**（`.gitignore`
+   里刻意不忽略它）。这是刻意的：这是一把一次性的调试密钥，公开它没有代价，而让每个
+   克隆都用同一把，`install -r` 升级才不会因为签名变化被拒。
 2. **`adb install` 会同时打印 `Success:` 和 `Failure [...]` 并返回 0**：
 
    ```

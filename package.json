@@ -40,11 +40,11 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "test": "node --test \"test/*.test.mjs\"",
+    "test": "node --test test/*.test.mjs",
     "test:live": "node --test test/live.live.mjs",
     "test:e2e": "node --test test/dorm-duty.live.mjs",
     "test:crash": "node --test test/crash.live.mjs",
-    "test:all": "node --test --test-concurrency=1 \"test/*.test.mjs\" test/live.live.mjs test/dorm-duty.live.mjs test/crash.live.mjs",
+    "test:all": "node --test --test-concurrency=1 test/*.test.mjs test/live.live.mjs test/dorm-duty.live.mjs test/crash.live.mjs",
     "sdk": "node tools/install-sdk.mjs",
     "build:example": "node tools/build-apk.mjs --project examples/dorm-duty",
     "doctor": "node ./bin/android-helper.mjs doctor"
