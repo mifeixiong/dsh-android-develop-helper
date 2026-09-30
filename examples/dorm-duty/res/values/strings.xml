@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">宿舍值日提醒</string>
+    <string name="header_subtitle">安排本周值日，到点提醒，完成可标记</string>
+
+    <string name="section_roster">宿舍成员</string>
+    <string name="roster_hint">用逗号分隔，例如 zhangsan,lisi,wangwu</string>
+    <string name="action_generate">生成值日表</string>
+    <string name="action_example">使用示例名单</string>
+    <string name="roster_empty">还没有成员，先填名单再生成</string>
+    <string name="roster_summary">共 %1$d 人，按顺序轮值一周</string>
+
+    <string name="section_schedule">本周值日表</string>
+    <string name="action_reset_done">清空完成标记</string>
+    <string name="not_assigned">未安排</string>
+    <string name="status_pending">未完成</string>
+    <string name="status_done">已完成</string>
+    <string name="action_done">标记完成</string>
+    <string name="action_undo">撤销完成</string>
+
+    <string name="section_reminder">每日提醒</string>
+    <string name="reminder_off">未开启</string>
+    <string name="reminder_on">已开启</string>
+    <string name="reminder_time">提醒时间：每天 %1$s</string>
+    <string name="action_reminder_on">开启每日提醒</string>
+    <string name="action_reminder_off">关闭每日提醒</string>
+    <string name="action_test_reminder">立即测试提醒</string>
+
+    <string name="section_bill">账单分摊</string>
+    <string name="bill_hint">输入总金额，例如 120</string>
+    <string name="bill_empty">还没有分摊结果</string>
+    <string name="bill_result">共 %1$d 人，每人 %2$.2f 元</string>
+    <string name="action_split_bill">分摊账单</string>
+    <string name="toast_bill_split">已按人数分摊</string>
+    <string name="toast_need_amount">请先填写总金额</string>
+    <string name="toast_bad_amount">总金额必须是数字</string>
+
+    <string name="section_diagnostics">调试</string>
+    <string name="crash_hint">下面这个按钮会故意抛出一个异常，用来验证「Logcat + 截图定位问题」这条链路。</string>
+    <string name="action_crash">触发一个异常（验证用）</string>
+
+    <string name="notification_title">今天该你值日</string>
+    <string name="notification_body">今天由 %1$s 值日，记得打扫公共区域。</string>
+    <string name="notification_body_done">今天由 %1$s 值日，已标记完成。</string>
+    <string name="channel_description">每日宿舍值日提醒</string>
+
+    <string name="toast_need_members">请先填写宿舍成员</string>
+    <string name="toast_generated">已生成值日表（%1$d 人）</string>
+    <string name="toast_reset_done">已完成标记已清空</string>
+    <string name="toast_reminder_on">已开启每日提醒</string>
+    <string name="toast_reminder_off">已关闭每日提醒</string>
+    <string name="toast_reminder_sent">已发送测试提醒</string>
+
+    <!-- ASCII on purpose: the automation flow types this with `adb shell input
+         text`, which cannot carry non-ASCII without an extra IME. -->
+    <string name="example_roster">zhangsan,lisi,wangwu,zhaoliu</string>
+</resources>

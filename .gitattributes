@@ -1,0 +1,20 @@
+# Normalise line endings on checkout so the same commit produces the same bytes
+# on Windows and on CI.  The CLI's own PNG/ZIP writers are byte-exact, and tests
+# compare those bytes, so the source files must not drift either.
+* text=auto eol=lf
+
+# Binary artifacts must never be touched by the text filters.  The keystore is
+# committed on purpose (see .gitignore): it is a throwaway debug key that keeps
+# every example build signed with the same certificate.
+*.apk binary
+*.keystore binary
+*.png binary
+*.zip binary
+*.dex binary
+*.class binary
+*.jar binary
+*.arsc binary
+
+# Generated/derived text that should not produce diff noise in review.
+artifacts/** -diff
+examples/*/build/** -diff

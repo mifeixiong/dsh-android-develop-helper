@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Every control carries an explicit android:id, and the seven weekday rows are
+  spelled out rather than inflated from an adapter. A RecyclerView would be less
+  XML and a much worse ADB automation target: uiautomator reports a stable,
+  uniquely named node per control only when the ids are distinct.
+-->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/scrollRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:id="@+id/rootColumn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/tvTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/app_name"
+            android:textColor="@color/text_primary"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvSubtitle"
+            style="@style/BodyText"
+            android:text="@string/header_subtitle" />
+
+        <!-- 成员 -->
+
+        <TextView
+            android:id="@+id/tvSectionRoster"
+            style="@style/SectionTitle"
+            android:text="@string/section_roster" />
+
+        <EditText
+            android:id="@+id/etMembers"
+            style="@style/MemberInput"
+            android:hint="@string/roster_hint" />
+
+        <TextView
+            android:id="@+id/tvRosterSummary"
+            style="@style/BodyText"
+            android:text="@string/roster_empty" />
+
+        <Button
+            android:id="@+id/btnGenerate"
+            style="@style/PrimaryAction"
+            android:text="@string/action_generate" />
+
+        <Button
+            android:id="@+id/btnExample"
+            style="@style/PrimaryAction"
+            android:text="@string/action_example" />
+
+        <!-- 值日表 -->
+
+        <TextView
+            android:id="@+id/tvSectionSchedule"
+            style="@style/SectionTitle"
+            android:text="@string/section_schedule" />
+
+        <TextView
+            android:id="@+id/tvScheduleEmpty"
+            style="@style/BodyText"
+            android:text="@string/roster_empty" />
+
+        <LinearLayout
+            android:id="@+id/layoutSchedule"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <LinearLayout android:id="@+id/row1" style="@style/DutyRow">
+                <TextView android:id="@+id/tvDay1" style="@style/DutyDay" />
+                <TextView android:id="@+id/tvName1" style="@style/DutyName" android:text="@string/not_assigned" />
+                <TextView android:id="@+id/tvStatus1" style="@style/DutyStatus" android:text="@string/status_pending" />
+                <Button android:id="@+id/btnDone1" style="@style/DutyButton" android:text="@string/action_done" />
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/row2" style="@style/DutyRow">
+                <TextView android:id="@+id/tvDay2" style="@style/DutyDay" />
+                <TextView android:id="@+id/tvName2" style="@style/DutyName" android:text="@string/not_assigned" />
+                <TextView android:id="@+id/tvStatus2" style="@style/DutyStatus" android:text="@string/status_pending" />
+                <Button android:id="@+id/btnDone2" style="@style/DutyButton" android:text="@string/action_done" />
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/row3" style="@style/DutyRow">
+                <TextView android:id="@+id/tvDay3" style="@style/DutyDay" />
+                <TextView android:id="@+id/tvName3" style="@style/DutyName" android:text="@string/not_assigned" />
+                <TextView android:id="@+id/tvStatus3" style="@style/DutyStatus" android:text="@string/status_pending" />
+                <Button android:id="@+id/btnDone3" style="@style/DutyButton" android:text="@string/action_done" />
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/row4" style="@style/DutyRow">
+                <TextView android:id="@+id/tvDay4" style="@style/DutyDay" />
+                <TextView android:id="@+id/tvName4" style="@style/DutyName" android:text="@string/not_assigned" />
+                <TextView android:id="@+id/tvStatus4" style="@style/DutyStatus" android:text="@string/status_pending" />
+                <Button android:id="@+id/btnDone4" style="@style/DutyButton" android:text="@string/action_done" />
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/row5" style="@style/DutyRow">
+                <TextView android:id="@+id/tvDay5" style="@style/DutyDay" />
+                <TextView android:id="@+id/tvName5" style="@style/DutyName" android:text="@string/not_assigned" />
+                <TextView android:id="@+id/tvStatus5" style="@style/DutyStatus" android:text="@string/status_pending" />
+                <Button android:id="@+id/btnDone5" style="@style/DutyButton" android:text="@string/action_done" />
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/row6" style="@style/DutyRow">
+                <TextView android:id="@+id/tvDay6" style="@style/DutyDay" />
+                <TextView android:id="@+id/tvName6" style="@style/DutyName" android:text="@string/not_assigned" />
+                <TextView android:id="@+id/tvStatus6" style="@style/DutyStatus" android:text="@string/status_pending" />
+                <Button android:id="@+id/btnDone6" style="@style/DutyButton" android:text="@string/action_done" />
+            </LinearLayout>
+
+            <LinearLayout android:id="@+id/row7" style="@style/DutyRow">
+                <TextView android:id="@+id/tvDay7" style="@style/DutyDay" />
+                <TextView android:id="@+id/tvName7" style="@style/DutyName" android:text="@string/not_assigned" />
+                <TextView android:id="@+id/tvStatus7" style="@style/DutyStatus" android:text="@string/status_pending" />
+                <Button android:id="@+id/btnDone7" style="@style/DutyButton" android:text="@string/action_done" />
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnResetDone"
+            style="@style/PrimaryAction"
+            android:text="@string/action_reset_done" />
+
+        <!-- 账单分摊 -->
+
+        <TextView
+            android:id="@+id/tvSectionBill"
+            style="@style/SectionTitle"
+            android:text="@string/section_bill" />
+
+        <EditText
+            android:id="@+id/etBillAmount"
+            style="@style/MemberInput"
+            android:hint="@string/bill_hint"
+            android:inputType="numberDecimal" />
+
+        <TextView
+            android:id="@+id/tvBillResult"
+            style="@style/BodyText"
+            android:text="@string/bill_empty" />
+
+        <Button
+            android:id="@+id/btnSplitBill"
+            style="@style/PrimaryAction"
+            android:text="@string/action_split_bill" />
+
+        <!-- 提醒 -->
+
+        <TextView
+            android:id="@+id/tvSectionReminder"
+            style="@style/SectionTitle"
+            android:text="@string/section_reminder" />
+
+        <TextView
+            android:id="@+id/tvReminderStatus"
+            style="@style/BodyText"
+            android:text="@string/reminder_off" />
+
+        <TextView
+            android:id="@+id/tvReminderTime"
+            style="@style/BodyText"
+            android:text="@string/reminder_off" />
+
+        <Button
+            android:id="@+id/btnToggleReminder"
+            style="@style/PrimaryAction"
+            android:text="@string/action_reminder_on" />
+
+        <Button
+            android:id="@+id/btnTestReminder"
+            style="@style/PrimaryAction"
+            android:text="@string/action_test_reminder" />
+
+        <!-- 调试 -->
+
+        <TextView
+            android:id="@+id/tvSectionDiagnostics"
+            style="@style/SectionTitle"
+            android:text="@string/section_diagnostics" />
+
+        <TextView
+            android:id="@+id/tvCrashHint"
+            style="@style/BodyText"
+            android:text="@string/crash_hint" />
+
+        <Button
+            android:id="@+id/btnCrash"
+            style="@style/PrimaryAction"
+            android:text="@string/action_crash" />
+
+    </LinearLayout>
+</ScrollView>

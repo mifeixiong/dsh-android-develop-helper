@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="AppTheme" parent="@android:style/Theme.Material.Light">
+        <item name="android:colorPrimary">#FF2563EB</item>
+        <item name="android:colorAccent">#FF2563EB</item>
+        <item name="android:windowBackground">@color/screen_background</item>
+    </style>
+
+    <style name="SectionTitle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:paddingTop">14dp</item>
+        <item name="android:paddingBottom">6dp</item>
+    </style>
+
+    <style name="BodyText">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/text_secondary</item>
+    </style>
+
+    <style name="MemberInput">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:inputType">text</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
+    <style name="PrimaryAction">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:layout_marginTop">8dp</item>
+    </style>
+
+    <!-- One weekday row. Declared statically in the layout, one per day, with
+         uniquely named children so uiautomator reports a stable node per
+         control instead of seven identical rows. -->
+    <style name="DutyRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:paddingTop">6dp</item>
+        <item name="android:paddingBottom">6dp</item>
+    </style>
+
+    <style name="DutyDay">
+        <item name="android:layout_width">52dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/text_primary</item>
+    </style>
+
+    <style name="DutyName">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/text_primary</item>
+    </style>
+
+    <style name="DutyStatus">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:paddingEnd">6dp</item>
+        <item name="android:paddingRight">6dp</item>
+        <item name="android:textColor">@color/status_pending</item>
+    </style>
+
+    <style name="DutyButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minWidth">96dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+
+</resources>

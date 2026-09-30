@@ -1,0 +1,22 @@
+# Bundle patch layer for dsh-android-develop-helper.
+#
+# Declared by package.json as `dsh.bundle.patch`, so installing the package as a
+# profile bundle is enough to mount it — no hand-written `file://` row, and no
+# hard-coded checkout path.
+#
+# `name` resolves as a module specifier from the profile's own node_modules, and
+# `/plugin` is one of this package's exports. The plugin module imports nothing
+# from the harness, so the row needs no peer version range and cannot be rejected
+# as incompatible when the harness version moves.
+- insert:
+    - id: android-develop-helper
+      name: 'dsh-android-develop-helper/plugin'
+      config:
+        # Installs, UI dumps and logcat reads are legitimately slow; this is the
+        # per-tool call ceiling, not a device timeout.
+        timeoutMs: 300000
+        # `flags` is passed straight to AndroidSession (adb path, emulator type,
+        # ports, device serial). Left empty on purpose: an unset `emulatorType`
+        # is auto-detected from whichever vendor launcher is installed, so the
+        # same row works on a MuMu, LDPlayer, Nox or AVD machine.
+        flags: {}

@@ -1,0 +1,17 @@
+# Per-run logs, screenshots and UI dumps.
+artifacts/
+
+# Optional local overrides (adb path, ports, default package).
+config.json
+
+# Resolved-device cache.
+.device.json
+
+# Build output.
+build/
+examples/*/build/
+
+# NOTE: examples/*/debug.keystore is committed on purpose.  It is a throwaway
+# debug key, and keeping it fixed is what makes repeated installs work — a fresh
+# key on every build turns the next `adb install` into
+# INSTALL_FAILED_UPDATE_INCOMPATIBLE.  See examples/dorm-duty/README.md.

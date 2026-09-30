@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit:
+    name: unit (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 is the declared engine floor; 22 is the current LTS line.  The
+        # package has no dependencies and no build step, so this is the whole
+        # install path — nothing to cache, nothing to link.
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Version
+        run: node --version
+      - name: Unit tests
+        run: npm test
+
+  manifest:
+    name: bundle manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # A bundle that declares a patch file which is missing, or a plugin entry
+      # that does not resolve, installs silently and then registers no tools.
+      # These two checks are what stop that from reaching a user.
+      - name: package.json parses and declares dsh.bundle.patch
+        run: |
+          node --input-type=module -e "
+            import fs from 'node:fs'
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+            const patch = pkg.dsh?.bundle?.patch
+            if (!patch) throw new Error('package.json has no dsh.bundle.patch')
+            if (!fs.existsSync(patch)) throw new Error('dsh.bundle.patch points at a missing file: ' + patch)
+            if (!pkg.exports?.['./plugin']) throw new Error('package.json has no ./plugin export')
+            if (!pkg.exports?.['./cordis.patch.yml']) throw new Error('package.json has no ./cordis.patch.yml export')
+            console.log('bundle manifest ok:', pkg.name, '->', patch)
+          "
+      - name: every tool definition is a valid JSON schema
+        run: node --test test/tools.test.mjs
+      - name: CLI entry point answers
+        run: node bin/android-helper.mjs help > /dev/null

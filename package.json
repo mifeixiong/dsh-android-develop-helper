@@ -1,0 +1,72 @@
+{
+  "name": "dsh-android-develop-helper",
+  "version": "1.1.0",
+  "description": "ADB-driven Android emulator automation that lets an AI agent develop, debug, test and localize errors in Android apps. Multi-emulator (MuMu / LDPlayer / Nox / AVD / custom) with configurable ADB ports. Installable as a dsh/Cordis bundle, or usable as a standalone CLI.",
+  "type": "module",
+  "license": "MIT",
+  "author": "mifeixiong",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mifeixiong/dsh-android-develop-helper.git"
+  },
+  "homepage": "https://github.com/mifeixiong/dsh-android-develop-helper#readme",
+  "bugs": {
+    "url": "https://github.com/mifeixiong/dsh-android-develop-helper/issues"
+  },
+  "bin": {
+    "android-helper": "./bin/android-helper.mjs",
+    "ahelper": "./bin/android-helper.mjs"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./tools": "./src/tools.js",
+    "./plugin": "./src/plugin.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin",
+    "src",
+    "tools",
+    "test",
+    "examples",
+    "cordis.patch.yml",
+    "SKILL.md",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "test:live": "node --test test/live.live.mjs",
+    "test:e2e": "node --test test/dorm-duty.live.mjs",
+    "test:crash": "node --test test/crash.live.mjs",
+    "test:all": "node --test --test-concurrency=1 \"test/*.test.mjs\" test/live.live.mjs test/dorm-duty.live.mjs test/crash.live.mjs",
+    "sdk": "node tools/install-sdk.mjs",
+    "build:example": "node tools/build-apk.mjs --project examples/dorm-duty",
+    "doctor": "node ./bin/android-helper.mjs doctor"
+  },
+  "keywords": [
+    "android",
+    "adb",
+    "emulator",
+    "mumu",
+    "ldplayer",
+    "nox",
+    "avd",
+    "automation",
+    "dsh",
+    "dsh-plugin",
+    "cordis",
+    "cordis-plugin",
+    "ai-agent"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
