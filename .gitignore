@@ -28,3 +28,6 @@ examples/*/*.iml
 # debug key, and keeping it fixed is what makes repeated installs work — a fresh
 # key on every build turns the next `adb install` into
 # INSTALL_FAILED_UPDATE_INCOMPATIBLE.  See examples/dorm-duty/README.md.
+#
+# The WebView probe has nothing to keep stable, so its key stays out of the tree.
+examples/webview-probe/debug.keystore

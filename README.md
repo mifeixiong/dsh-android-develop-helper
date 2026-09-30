@@ -416,6 +416,7 @@ dsh-android-develop-helper/
 │   └── probe-device.mjs       # 逐项排查单个 serial
 ├── examples/dorm-duty/        # 示例 App：Java + 传统 View，控件全部带 android:id（免 Gradle 构建）
 ├── examples/dorm-duty-flutter/# 示例 App：Dart + Flutter + Material 3，控件带 Semantics identifier
+├── examples/webview-probe/    # 探针 App：WebView 的 DOM 在无障碍树里长什么样（12 KB，免 Gradle）
 ├── cordis.patch.yml           # bundle 补丁层：插入插件行（由 package.json 声明）
 ├── SKILL.md                   # 文件系统技能，随仓库一起分发
 ├── .github/workflows/ci.yml   # 单元测试 + bundle 清单自检
@@ -488,8 +489,14 @@ flutter:crash: 2 pass / 0 fail   (38.0 s)
 
 ## 7. 已知限制
 
-- UI 树描述的是原生 view 以及框架自己发布的语义树。`WebView` 内部内容需要 CDP，本工具不提供；
-  Flutter / Compose 可以，前提是控件带了 identifier（见第 4 节）。
+- **`WebView` 内部是可见的。** DOM 的无障碍树会被暴露出来，HTML 的 `id` 就是 `resource-id`，
+  `tap-id` / `tap-text` 照常可用（`examples/webview-probe/` 是 12 KB 的可复现证据）。
+  两点必须知道：① 这棵树**惰性建立**——App 启动后第一次 `ui` 可能只看到一个空的 `WebView`
+  节点，**再执行一次就出来了**，别急着下结论；② 只有有语义角色的元素会出现，`canvas`、
+  Shadow DOM、跨域 `iframe` 内部和纯布局用的 `div` 都不在里面。要看那些、要执行 JS 或读网络，
+  才需要 CDP（`adb forward tcp:9222 localabstract:webview_devtools_remote_<pid>`），本工具不提供。
+- Flutter / Compose 走的是同一条路：框架把语义树发布到无障碍层，控件带 identifier 就能按 id
+  定位（见第 4 节）。
 - **Flutter 只把屏幕内的语义节点报给无障碍树**：滚出视口的控件在里面根本不存在，
   `ui --no-compressed` 也拿不到。对 Flutter 界面要先 `scroll` 再定位，没有别的顺序。
 - **Dart 的行号只在 debug（JIT）构建里存在**。profile 构建的 AOT 会把帧内联成只剩文件名，

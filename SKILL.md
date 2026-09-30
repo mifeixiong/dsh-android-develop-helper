@@ -329,8 +329,15 @@ If a Flutter crash localises to a file but not to a line, that is the reason —
   `--no-compressed` (CLI) / `compressed: false` (tool) to dump the whole view tree, or scroll first.
   This is not hypothetical: it made an end-to-end test read a missing row as null on a landscape
   emulator. Pin the orientation with `rotate` when geometry matters.
-- The UI tree only describes native views. Content rendered inside a `WebView` needs CDP, which this
-  toolkit does not provide.
+- **A `WebView`'s DOM is readable.** Its accessibility tree is published like any other, and an HTML
+  `id` arrives as the `resource-id` — so `tap-id` and `tap-text` work inside a page too. Two
+  caveats: the tree is built **lazily**, so the very first `ui` after an app starts may show one
+  empty `WebView` node and the *second* call shows the content (retry before concluding anything);
+  and only elements with an accessibility role appear, so `canvas`, shadow DOM, cross-origin
+  `iframe` contents and layout-only `div`s are not reachable. Reading those, running JS or watching
+  network traffic needs CDP (`adb forward tcp:9222 localabstract:webview_devtools_remote_<pid>`),
+  which this toolkit does not provide. `examples/webview-probe/` is the 12 KB app that measures all
+  of this.
 - The emulator's own `adb` (e.g. `MuMu\nx_main\adb.exe`) is preferred when found, because a
   mismatched adb version is a common source of `device offline`.
 - Full command and output logs are written to `<repo>/artifacts/<timestamp>-<label>/log.txt` with no

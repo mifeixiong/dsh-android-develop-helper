@@ -33,6 +33,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   specifically, and `findNodes` ranks either field the same way.
 - `renderCrash` prints each frame in its own runtime's notation: a Dart frame
   with its `package:` URI, a Java frame with its file name.
+- **Corrected a claim the documentation had wrong.** The README said WebView
+  content needs CDP, full stop. It does not: `examples/webview-probe/` (a 12 KB
+  app, built by the Gradle-free path) shows the DOM in the accessibility tree,
+  with an HTML `id` arriving as `resource-id` and `tap-id` landing on a page
+  button. What is true is narrower — the tree is built lazily, so the first `ui`
+  after launch can show one empty `WebView` node while the second shows
+  everything, and only elements with an accessibility role appear. CDP is what
+  you need for `canvas`, shadow DOM, JS evaluation and network traffic, not for
+  reading or tapping a page.
 
 ### Notes
 
