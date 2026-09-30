@@ -1,5 +1,8 @@
 # dsh-android-develop-helper
 
+[![CI](https://github.com/mifeixiong/dsh-android-develop-helper/actions/workflows/ci.yml/badge.svg)](https://github.com/mifeixiong/dsh-android-develop-helper/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 > 原名 `dsh-mumu`。核心能力不变——**通过 ADB 驱动 Android 模拟器，辅助 AI Agent 快速开发、调试、测试与定位安卓应用错误**；
 > 适用范围从「仅 MuMu 模拟器 + 应用开发」扩展为「多模拟器兼容 + 开发全流程辅助」。
 
