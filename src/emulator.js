@@ -26,6 +26,12 @@ export function launcherCandidates(emulatorType, extraRoots = []) {
   const candidates = []
   const push = (file, args = [], label = null) => {
     if (!file) return
+    // Vendor install locations are Windows-shaped: `%ProgramFiles%`, `D:\Program
+    // Files`, `C:\LDPlayer`.  On another platform those strings are relative
+    // nonsense that can never exist, so they are dropped rather than offered as
+    // a candidate that looks plausible and is not.  (CI on Linux is what showed
+    // this: the "absolute path" assertion failed on a `D:\...` string.)
+    if (!path.isAbsolute(file)) return
     candidates.push({ path: file, args, label: label ?? path.basename(file) })
   }
 
@@ -224,6 +230,10 @@ function runCapture(command, args, timeoutMs = 20000) {
 export function managerCandidates(emulatorType) {
   const programFiles = process.env.ProgramFiles ?? 'C:\\Program Files'
   const out = []
+  // Same platform filter as `launcherCandidates`, and for the same reason.
+  const push = (file, kind) => {
+    if (path.isAbsolute(file)) out.push({ path: file, kind })
+  }
   if (emulatorType === 'mumu') {
     for (const root of [
       path.join(programFiles, 'Netease', 'MuMuPlayer-12.0', 'nx_main'),
@@ -231,12 +241,12 @@ export function managerCandidates(emulatorType) {
       path.join(programFiles, 'Netease', 'MuMu', 'nx_main'),
       path.join('D:\\Program Files', 'Netease', 'MuMuPlayer-12.0', 'nx_main'),
     ]) {
-      out.push({ path: path.join(root, `MuMuManager${PLAYER}`), kind: 'mumu' })
+      push(path.join(root, `MuMuManager${PLAYER}`), 'mumu')
     }
   }
   if (emulatorType === 'ldplayer') {
     for (const root of ['C:\\LDPlayer\\LDPlayer9', 'C:\\LDPlayer\\LDPlayer4', 'D:\\LDPlayer\\LDPlayer9']) {
-      out.push({ path: path.join(root, `ldconsole${PLAYER}`), kind: 'ldplayer' })
+      push(path.join(root, `ldconsole${PLAYER}`), 'ldplayer')
     }
   }
   return out

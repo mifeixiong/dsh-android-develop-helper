@@ -1,6 +1,6 @@
 {
   "name": "dsh-android-develop-helper",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "ADB-driven Android emulator automation that lets an AI agent develop, debug, test and localize errors in Android apps. Multi-emulator (MuMu / LDPlayer / Nox / AVD / custom) with configurable ADB ports. Installable as a dsh/Cordis bundle, or usable as a standalone CLI.",
   "type": "module",
   "license": "MIT",

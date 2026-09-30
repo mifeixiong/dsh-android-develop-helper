@@ -4,6 +4,34 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] — 2026-09-30
+
+Two defects found by the workflow's first real run — both invisible on the
+Windows machine this toolkit was developed on.
+
+### Fixed
+
+- **Bad arguments reached the device.** `android_input`, `android_wait` and
+  `android_app` checked their `action` *inside* `withDevice`, i.e. after the
+  emulator had been resolved. On a machine with no emulator running, a caller's
+  typo came back as "没有可用设备": slower, and it hides the actual mistake. The
+  unit test asserting this behaviour is named "rejects unknown actions before
+  touching a device" — it passed locally only because an emulator happened to be
+  running. The checks now run first, and the action sets are shared with the
+  schemas so the enum a model reads cannot drift from the switch that runs.
+- **Vendor launcher candidates were Windows paths on every platform.** The
+  MuMu / LDPlayer / Nox locations are built from `%ProgramFiles%` and literal
+  `D:\...`, so off Windows the candidate list held strings that are not absolute
+  paths and can never exist. Candidates are now filtered with
+  `path.isAbsolute`, and the platform-bound test expectations are marked as
+  platform-bound rather than silently wrong.
+
+### Changed
+
+- CI runs on `ubuntu-latest` **and** `windows-latest`. Windows is the platform
+  this toolkit targets — only testing on Linux meant the platform the code is
+  actually for was never exercised.
+
 ## [1.1.0] — 2026-09-30
 
 First release published as an installable dsh bundle.

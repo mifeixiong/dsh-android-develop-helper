@@ -349,7 +349,7 @@ dsh-android-develop-helper/
 ├── cordis.patch.yml           # bundle 补丁层：插入插件行（由 package.json 声明）
 ├── SKILL.md                   # 文件系统技能，随仓库一起分发
 ├── .github/workflows/ci.yml   # 单元测试 + bundle 清单自检
-├── test/                      # 129 个单元测试 + 14 个真机测试
+├── test/                      # 131 个单元测试 + 14 个真机测试
 ├── artifacts/                 # 每次运行的日志、截图、UI dump（不入库）
 └── config.json                # 可选覆盖（默认不存在，不入库）
 ```
@@ -360,12 +360,13 @@ dsh-android-develop-helper/
 
 ## 5. 验证
 
-单元测试与设备无关，CI（`.github/workflows/ci.yml`）在 Node 20 与 22 上跑它们，并额外做一次
-bundle 清单自检：`dsh.bundle.patch` 指向的文件必须存在，`./plugin` 与 `./cordis.patch.yml`
-导出必须齐全。补丁文件缺失或入口写错时，安装会「成功」但一个工具都不注册，这两项检查就是拦它的。
+单元测试与设备无关，CI（`.github/workflows/ci.yml`）在 ubuntu 与 windows 两个 runner 上跑它们
+（Node 20 / 22），并额外做一次 bundle 清单自检：`dsh.bundle.patch` 指向的文件必须存在，
+`./plugin` 与 `./cordis.patch.yml` 导出必须齐全。补丁文件缺失或入口写错时，安装会「成功」
+但一个工具都不注册，这两项检查就是拦它的。
 
 ```powershell
-npm test          # 129 个单元测试，不需要模拟器
+npm test          # 131 个单元测试，不需要模拟器
 npm run test:live # 9 个集成测试，对着真实模拟器跑；没有设备时自动 skip
 npm run test:e2e  # 2 个端到端测试：完整跑一遍验证 App
 npm run test:crash # 3 个测试：制造异常 → Logcat 解析 → 定位到源码行
@@ -403,10 +404,10 @@ CLI 参数解析、工具定义（含用 harness 真实的 `assertSupportedJsonS
 最近一次结果：
 
 ```
-unit : 129 pass / 0 fail   (1.8 s)
-live :   9 pass / 0 fail   (24.7 s)
-e2e  :   2 pass / 0 fail   (64.6 s)
-crash:   3 pass / 0 fail   (60.2 s)
+unit : 131 pass / 0 fail   (0.4 s)
+live :   9 pass / 0 fail   (25.4 s)
+e2e  :   2 pass / 0 fail   (60.8 s)
+crash:   3 pass / 0 fail   (58.8 s)
 ```
 
 ---

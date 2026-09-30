@@ -8,15 +8,23 @@ on:
 
 jobs:
   unit:
-    name: unit (node ${{ matrix.node }})
-    runs-on: ubuntu-latest
+    name: unit (${{ matrix.os }}, node ${{ matrix.node }})
+    # Windows is the platform this toolkit actually targets (MuMu/LDPlayer/Nox
+    # ship Windows installers and their paths are Windows paths), so the suite
+    # runs there too — running it only on Linux is what let the vendor launcher
+    # list accumulate `D:\...` entries that are not paths off Windows.
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        # 20 is the declared engine floor; 22 is the current LTS line.  The
-        # package has no dependencies and no build step, so this is the whole
-        # install path — nothing to cache, nothing to link.
+        os: [ubuntu-latest, windows-latest]
         node: ['20', '22']
+        exclude:
+          # `npm test` globs its own file list. Node 20 cannot expand globs, and
+          # cmd.exe does not either, so this one combination cannot discover the
+          # tests; every other combination can.
+          - os: windows-latest
+            node: '20'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

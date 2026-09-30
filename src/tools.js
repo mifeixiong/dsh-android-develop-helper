@@ -64,6 +64,28 @@ export function createTools(options = {}) {
   const cwd = options.cwd ?? process.cwd()
   const resolveLocal = (file) => (path.isAbsolute(file) ? file : path.resolve(cwd, file))
 
+  // Action sets, shared by the schemas and the pre-flight checks.  Declaring them
+  // once is what stops the enum a model reads from drifting away from the switch
+  // that actually runs.
+  const INPUT_ACTIONS = ['text', 'key', 'swipe', 'scroll', 'long_press']
+  const WAIT_CONDITIONS = ['text', 'id', 'activity', 'gone', 'idle']
+  const APP_ACTIONS = ['current', 'install', 'launch', 'stop', 'uninstall', 'clear', 'grant', 'list', 'info', 'apk_info']
+
+  /**
+   * Reject an unusable call *before* a device is contacted.
+   *
+   * Checking inside `withDevice` looks equivalent but is not: the device is
+   * resolved first, so on a machine with no emulator running a caller's typo
+   * comes back as "没有可用设备" — slower, and it hides the actual mistake.  The
+   * unit test that asserts this is called "rejects unknown actions before
+   * touching a device"; CI, which has no emulator, is what proved it did not.
+   */
+  const requireChoice = (value, allowed, label) => {
+    if (!allowed.includes(value)) {
+      throw new Error(`未知${label}: ${String(value)}（可用: ${allowed.join(', ')}）`)
+    }
+  }
+
   return [
     // ── discovery ───────────────────────────────────────────────────────────
     {
@@ -394,7 +416,7 @@ export function createTools(options = {}) {
         properties: {
           action: {
             type: 'string',
-            enum: ['text', 'key', 'swipe', 'scroll', 'long_press'],
+            enum: INPUT_ACTIONS,
             description: 'Which input to send.',
           },
           text: stringProp('action=text: the string to type.'),
@@ -411,11 +433,23 @@ export function createTools(options = {}) {
       },
       output: OUTPUT({ summary: stringProp('Input result') }),
       async execute(args) {
+        requireChoice(args.action, INPUT_ACTIONS, ' action')
+        // Per-action arguments are checked here too: a missing `key` is just as
+        // much a caller mistake as an unknown action.
+        if (args.action === 'text' && typeof args.text !== 'string') throw new Error('action=text 需要 text 参数')
+        if (args.action === 'key' && !args.key) throw new Error('action=key 需要 key 参数')
+        if (args.action === 'swipe') {
+          for (const field of ['fromX', 'fromY', 'toX', 'toY']) {
+            if (!Number.isFinite(args[field])) throw new Error(`action=swipe 需要 ${field}`)
+          }
+        }
+        if (args.action === 'long_press' && (!Number.isFinite(args.fromX) || !Number.isFinite(args.fromY))) {
+          throw new Error('action=long_press 需要 fromX / fromY')
+        }
         return session.withDevice(
           async (device) => {
             switch (args.action) {
               case 'text': {
-                if (typeof args.text !== 'string') throw new Error('action=text 需要 text 参数')
                 const result = await device.text(args.text, { replace: args.replace === true })
                 return {
                   summary: `text (${result.method}) ${result.characters} 字符${result.warning ? `\n[warn] ${result.warning}` : ''}`,
@@ -423,14 +457,10 @@ export function createTools(options = {}) {
                 }
               }
               case 'key': {
-                if (!args.key) throw new Error('action=key 需要 key 参数')
                 const result = await device.key(args.key)
                 return { summary: `keyevent ${result.codes.join(',')}`, ...result }
               }
               case 'swipe': {
-                for (const field of ['fromX', 'fromY', 'toX', 'toY']) {
-                  if (!Number.isFinite(args[field])) throw new Error(`action=swipe 需要 ${field}`)
-                }
                 const result = await device.swipe(
                   { x: args.fromX, y: args.fromY },
                   { x: args.toX, y: args.toY },
@@ -448,13 +478,13 @@ export function createTools(options = {}) {
                 return { summary: `scroll ${direction} x${times}` }
               }
               case 'long_press': {
-                if (!Number.isFinite(args.fromX) || !Number.isFinite(args.fromY)) {
-                  throw new Error('action=long_press 需要 fromX / fromY')
-                }
                 const result = await device.longPress(args.fromX, args.fromY, args.durationMs ?? 800)
                 return { summary: `long_press ${args.fromX},${args.fromY} (${result.durationMs}ms)`, ...result }
               }
               default:
+                // Unreachable: `requireChoice` already rejected anything outside
+                // the enum. Kept so that adding a case to the schema without a
+                // matching branch fails loudly instead of silently doing nothing.
                 throw new Error(`未知 action: ${args.action}`)
             }
           },
@@ -476,7 +506,7 @@ export function createTools(options = {}) {
         properties: {
           for: {
             type: 'string',
-            enum: ['text', 'id', 'activity', 'gone', 'idle'],
+            enum: WAIT_CONDITIONS,
             description: 'Condition to wait for.',
           },
           value: stringProp('Text, resource-id or Activity substring/regex (not needed for idle).'),
@@ -486,6 +516,7 @@ export function createTools(options = {}) {
       },
       output: OUTPUT({ summary: stringProp('Wait outcome') }),
       async execute(args) {
+        requireChoice(args.for, WAIT_CONDITIONS, '等待条件')
         return session.withDevice(
           async (device) => {
             const timeoutMs = clamp(args.timeoutMs ?? 15000, 500, 300000)
@@ -534,7 +565,7 @@ export function createTools(options = {}) {
         properties: {
           action: {
             type: 'string',
-            enum: ['current', 'install', 'launch', 'stop', 'uninstall', 'clear', 'grant', 'list', 'info', 'apk_info'],
+            enum: APP_ACTIONS,
             description: 'Operation to perform.',
           },
           package: stringProp('Target package name.'),
@@ -552,7 +583,15 @@ export function createTools(options = {}) {
       },
       output: OUTPUT({ summary: stringProp('Operation result') }),
       async execute(args) {
+        requireChoice(args.action, APP_ACTIONS, ' action')
         const pkg = args.package ?? session.cfg.defaultPackage ?? null
+        // Argument mistakes are reported before a device is contacted; the same
+        // checks inside `withDevice` stay as a second line of defence.
+        if (args.action === 'install' && !args.apk) throw new Error('action=install 需要 apk 参数')
+        if (args.action === 'launch' && !pkg) throw new Error('action=launch 需要 package（或 package/Activity）')
+        if (['stop', 'uninstall', 'clear', 'grant'].includes(args.action) && !pkg) {
+          throw new Error(`action=${args.action} 需要 package`)
+        }
         return session.withDevice(
           async (device) => {
             switch (args.action) {

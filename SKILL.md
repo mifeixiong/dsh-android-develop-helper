@@ -1,5 +1,5 @@
 ---
-version: "1.1.0"
+version: "1.1.1"
 name: dsh-android-develop-helper
 aliases: ["Android 模拟器助手", "安卓开发助手", "android emulator helper"]
 description: "Drive an Android emulator over ADB to develop, debug, test and localize errors in an app — screenshots, UI trees, taps/text/keys, APK install with hash verification, and logcat with a crash verdict. Multi-emulator (MuMu / LDPlayer / Nox / AVD) with configurable ADB ports."
@@ -298,7 +298,7 @@ the screenshot before restarting the app, because the failing frame is gone afte
   directory.
 - `find` excludes disabled and zero-area nodes by default, which is right for resolving a tap target
   and wrong for inspecting state. To assert "this button is disabled", pass `enabledOnly: false`.
-- Tests: `npm test` (129 unit), `npm run test:live` (9 against a real emulator),
+- Tests: `npm test` (131 unit), `npm run test:live` (9 against a real emulator),
   `npm run test:e2e` (2 that drive the example app end to end),
   `npm run test:crash` (3 that raise a real exception and verify the reported `file:line` against the
   source on disk). `npm run test:all` runs everything serially — the live suites share one device and
