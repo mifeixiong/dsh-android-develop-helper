@@ -348,7 +348,7 @@ dsh-android-develop-helper/
 │   ├── build-apk.mjs          # 免 Gradle 构建：aapt2 → javac → d8 → 自研打包 → apksigner
 │   ├── sdk-urls.mjs           # 解析当前 SDK 包下载地址
 │   └── probe-device.mjs       # 逐项排查单个 serial
-├── examples/dorm-duty/        # Phase 3 验证用 App（Java + 传统 View）
+├── examples/dorm-duty/        # 示例 App：Java + 传统 View，控件全部带显式 android:id
 ├── cordis.patch.yml           # bundle 补丁层：插入插件行（由 package.json 声明）
 ├── SKILL.md                   # 文件系统技能，随仓库一起分发
 ├── .github/workflows/ci.yml   # 单元测试 + bundle 清单自检
@@ -415,91 +415,7 @@ crash:   3 pass / 0 fail   (58.8 s)
 
 ---
 
-## 6. 验证项目：宿舍值日提醒 App
-
-目标文档第四节要求"用插件完整开发一个 App，验证插件的实际效果"。App 在
-`examples/dorm-duty/`，说明见其 [README](examples/dorm-duty/README.md)。
-
-**技术栈选择偏离了目标文档的建议，理由是具体的**：文档建议 Kotlin + Compose（人类开发效率最高），
-但这个 App 的用途是被 ADB 驱动，评价标准是 `uiautomator` 读出来的界面树。
-
-- 传统 View + 显式 `android:id` → 每个控件都是唯一命名的节点
-- Compose 默认把树合并成少量语义节点，不开 `testTag` 时插件只能看到一大块
-  `AndroidComposeView`，元素定位退化到坐标点击——正是这套工具想摆脱的东西
-
-同理，7 天值日行没有用 `RecyclerView`：那会让 7 行共享同一批 id，`find` 一次返回 7 个匹配项。
-静态声明多写 40 行 XML，换来的是一棵可以按 id 直接操作的树。
-
-### 免 Gradle 构建
-
-```powershell
-node tools/install-sdk.mjs                                # 一次性，约 126 MB
-node tools/build-apk.mjs --project examples/dorm-duty     # 约 4 秒出 APK
-```
-
-`sdkmanager` 会带来 Gradle 时代的机器、需要接受协议、还对 JDK 版本敏感，所以
-`install-sdk.mjs` 直接从 Google 的 `repository2-3.xml` 清单里取三个包
-（platform / build-tools / platform-tools）并解压，不做别的。
-
-构建路径是 `aapt2 compile → aapt2 link → javac → d8 → 打包 → apksigner`。
-其中**打包是自己实现的**（`src/zip.js`）：`resources.arsc` 必须以 stored + 4 字节对齐写入
-才能走平台的 mmap 路径，而 Windows 上没有现成工具保证这一点。构建结束会用真正的
-`zipalign -c 4` 复核，不通过就报错。
-
-### 端到端验证的内容
-
-`test/dorm-duty.live.mjs` 把闭环跑一遍，每条断言都读设备状态：
-
-| 步骤 | 断言 |
-| --- | --- |
-| 安装 | 设备端 SHA256 == 本地；包名由二进制 manifest 解析 |
-| 清数据 + 补授权 | `pm clear` 会撤销 `install -g` 的授权，因此重新 `pm grant` |
-| 启动 | `wait-activity MainActivity`，不是 sleep |
-| 空状态 | `btnDone1` 的 `enabled == false`（所以 `find` 要能返回 disabled 节点） |
-| 生成值日表 | 周一 zhangsan / 周二 lisi / … / 周五 zhangsan（轮值回绕） |
-| 标记完成 | `tvStatus1 == 已完成`、`btnDone1 == 撤销完成`、周二不受影响 |
-| 读私有状态 | `run-as … cat shared_prefs/dorm_duty.xml` 里 `done` 以 `1` 开头 |
-| 清空标记 | `tvStatus1` 回到 `未完成` |
-| 开启提醒 | `dumpsys alarm` 里出现 `RTC_WAKEUP … com.example.dormduty.REMIND` |
-| 测试通知 | `dumpsys notification` 里有 `pkg=com.example.dormduty`，频道为 `dorm_duty_reminder` |
-
-单步耗时的大头是 `uiautomator dump`（约 2 秒/次），整个端到端约 60 秒。
-
-### 错误定位闭环
-
-App 里有一个刻意留的「触发一个异常（验证用）」按钮，还有一段**真的写错了**的账单分摊代码——
-`splitBill()` 用整数分做除法，空名单时 `totalCents / 0` 会抛 `ArithmeticException`
-（用 `double` 就不会，`double / 0` 是 `Infinity`，那才是更难查的写法）。
-`test/crash.live.mjs` 把两者都跑一遍：
-
-```
-$ node bin/android-helper.mjs diagnose com.example.dormduty
-崩溃: java.lang.ArithmeticException: divide by zero
-  进程: com.example.dormduty (pid 44272)
-  定位: MainActivity.java:197  ← com.example.dormduty.MainActivity.splitBill
-```
-
-然后**把这个行号拿回源码里核对**——断言 `MainActivity.java` 第 197 行确实包含
-`totalCents / members.length`。工具报的行号是不是真的，测试说了算。
-
-修好之后（监听器改调 `splitBillFixed()`）跑同样的步骤：进程不再死、`diagnose` 报
-「未发现崩溃特征」、结果文本保持未计算。同一个测试同时覆盖「能定位」和「修复生效」。
-
-### 这次验证暴露的三个真问题
-
-1. **每次构建都换签名密钥**——密钥原来放在每次清空的 `build/` 里，导致下一次安装
-   被 `INSTALL_FAILED_UPDATE_INCOMPATIBLE` 拒绝。现在密钥固定在 `examples/dorm-duty/debug.keystore`。
-2. **`adb install` 的成功信息不可信**——流式安装在同一次输出里既打印 `Success:` 又打印
-   `Failure [...]`，退出码是 0。原来的判断会把"什么都没装"当成成功。
-   现在以 `Failure [CODE]` 为准，并翻译成下一步动作。
-3. **崩溃判定会把别人的崩溃算进来**——`crash` buffer 是全设备共享的，`uiautomator` 每次 dump
-   都 SIGSEGV，于是「诊断这个 App」的输出里全是 uiautomator 的 tombstone。
-   而且按单行匹配会把一次 SIGSEGV 拆成三条 finding，各自的前瞻窗口还会越过块边界，
-   把崩溃算到**下一个**崩溃的进程头上。现在 tombstone 按日志 tag 分块解析，并按包名归因。
-
----
-
-## 7. 已知限制
+## 6. 已知限制
 
 - UI 树只描述原生 view。`WebView` 内部内容需要 CDP，本工具不提供。
 - **`ui` 默认只列出"屏幕上可见"的节点**——`uiautomator --compressed` 会过滤掉滚出屏幕的节点，
@@ -513,26 +429,3 @@ $ node bin/android-helper.mjs diagnose com.example.dormduty
 - 需要设备端存在 `sha256sum` 才能做安装校验；缺失时记为「跳过」而不是「失败」。
 - 图片内容不同，PNG 压缩率差异很大：纯色应用界面可达 ~50x（实测 78x），照片壁纸只有 ~4x。
   真正可控的是缩放和裁剪。
-
----
-
-## 8. 从 `dsh-mumu` 迁移
-
-| 旧（`.dsh-mumu/`，Python） | 现在 |
-| --- | --- |
-| `python mumu.py doctor` | `node bin/android-helper.mjs doctor` |
-| `python mumu.py devices` | `node bin/android-helper.mjs devices --probe` |
-| `python mumu.py dump/find` | `ui` / `find` |
-| `python mumu.py tap-text/tap-id` | `tap-text` / `tap-id` |
-| `python mumu.py scroll-to` | 暂未提供（用 `ui` + `scroll` + `find` 组合） |
-| `python mumu.py shot` | `shot --scale --region` |
-| `python mumu.py install --expect-sha` | `install`（默认就校验） |
-| `python mumu.py wv-*`（WebView/CDP） | **未迁移**，见已知限制 |
-| `python mumu.py db-*`（Room 库查询） | **未迁移** |
-| `python mumu.py scenario` + 断言 | **未迁移**；场景断言在集成测试里以 Node 测试形式存在 |
-| `python mumu.py logcat` | `logcat` / `diagnose` |
-
-尚未迁移的三块（WebView/CDP、Room 数据库、JSON 场景编排）是下一步的候选，
-它们不属于「操作模拟器辅助开发」的最小闭环。
-
-旧工作区 `E:\code\.dsh-mumu` 保持原样未改动，可继续对照使用。
