@@ -11,6 +11,10 @@
  * The "did it crash" question is answered by `analyze()` rather than by the
  * caller grepping: agent runtimes and OEM builds emit several different fatal
  * signatures and a plain `grep FATAL` misses `ANR in` and native tombstones.
+ *
+ * Two managed runtimes are parsed in their own notation rather than through a
+ * shared regex: AndroidRuntime's Java `FATAL EXCEPTION` blocks, and Flutter's
+ * Dart `Unhandled Exception` blocks (whose frames are URIs, not file names).
  */
 import { pidOf } from './app.js'
 
@@ -20,6 +24,9 @@ const LEVEL_ORDER = ['V', 'D', 'I', 'W', 'E', 'F']
 
 const CRASH_SIGNATURES = [
   { kind: 'java-crash', re: /FATAL EXCEPTION/i },
+  // Flutter's Dart layer reports an uncaught error as `Unhandled Exception:` on
+  // the `flutter` tag, with its own stack format — see `parseDartCrashBlocks`.
+  { kind: 'dart-crash', re: /Unhandled Exception:/i },
   { kind: 'anr', re: /\bANR in\b/ },
   { kind: 'strict-mode', re: /StrictMode policy violation/i },
   { kind: 'oom', re: /(OutOfMemoryError|LowMemoryKiller|lowmemorykiller)/i },
@@ -275,7 +282,56 @@ function parseFrame(message) {
   }
 }
 
+/**
+ * A Dart frame as Flutter prints it on the `flutter` tag:
+ *
+ *   #0      splitBill (package:dorm_duty/duty.dart:42:9)
+ *   #2      _InkResponseState.handleTap (package:flutter/src/material/ink_well.dart:1175:21)
+ *   #3      _rootRun (dart:async/zone.dart:1434:12)
+ *
+ * Two differences from a Java frame matter. The "method" is a Dart function name
+ * that may contain spaces (`<anonymous closure>`), and the parenthesised part is
+ * a URI plus line and column rather than a bare file name. The URI is kept,
+ * because `package:flutter/…` is what separates framework code from app code —
+ * and because the Dart package name is not the Android package name, so the
+ * `pkg` filter that works for Java frames cannot be reused here.
+ */
+const DART_FRAME_RE = /^#(\d+)\s+(.+?)\s+\(([^()]+)\)\s*$/
+
+function parseDartFrame(message) {
+  const match = DART_FRAME_RE.exec(message)
+  if (!match) return null
+  const target = match[3].trim()
+  const parts = /^(.+?):(\d+)(?::(\d+))?$/.exec(target)
+  const uri = parts ? parts[1] : target
+  return {
+    method: match[2].trim(),
+    file: dartFileOf(uri),
+    line: parts ? Number(parts[2]) : null,
+    column: parts?.[3] ? Number(parts[3]) : null,
+    uri,
+    dart: true,
+    native: false,
+    unknownSource: false,
+  }
+}
+
+/** `package:dorm_duty/main.dart` → `main.dart`; `dart:core` names no file. */
+function dartFileOf(uri) {
+  if (!uri.includes('/')) return null
+  return uri.slice(uri.lastIndexOf('/') + 1) || null
+}
+
 function isFrameworkFrame(frame) {
+  if (frame.dart) {
+    // Everything outside the Dart SDK and Flutter itself is app code: the Dart
+    // package name (`dorm_duty`) is not the Android one (`com.example.x`), so
+    // identity cannot be used the way it is for Java frames.
+    const uri = frame.uri ?? ''
+    return (
+      uri.startsWith('dart:') || uri.startsWith('package:flutter/') || uri.startsWith('package:flutter_test/')
+    )
+  }
   if (frame.native || frame.unknownSource) return true
   if (!frame.file) return false
   if (FRAMEWORK_FILES.has(frame.file)) return true
@@ -304,6 +360,8 @@ export function parseCrashBlocks(lines, options = {}) {
     if (!head) continue
 
     const crash = {
+      index: i,
+      kind: 'java',
       thread: head[1]?.trim() || null,
       process: null,
       pid: parsed[i].pid,
@@ -387,6 +445,102 @@ export function parseCrashBlocks(lines, options = {}) {
   return unique
 }
 
+/**
+ * Pull uncaught Dart errors out of a log stream.
+ *
+ * Flutter prints them on the `flutter` tag, normally behind the engine's own
+ * prefix:
+ *
+ *   E/flutter: [ERROR:flutter/runtime/dart_vm_initializer.cc(41)] Unhandled Exception: IntegerDivisionByZeroException: Division by zero
+ *   E/flutter: #0      splitBill (package:dorm_duty/duty.dart:42:9)
+ *   E/flutter: #1      _DutyPageState._onSplit.<anonymous closure> (package:dorm_duty/main.dart:118:21)
+ *   E/flutter: <asynchronous suspension>
+ *
+ * `#1` is the frame to open, not `#0`: the innermost frame belongs to whatever
+ * threw, and the first app-owned frame is where the call came from. That choice
+ * is made by the same `isFrameworkFrame` rule the Java path uses, which is why
+ * the Dart branch of that function keys off the URI rather than a package name.
+ *
+ * One caveat worth knowing: a **release** build prints the error with no Dart
+ * frames at all, so `location` is only available from a `--profile` (or debug)
+ * build. `diagnose` still reports the exception and the headline.
+ *
+ * @param {string[]} lines
+ */
+export function parseDartCrashBlocks(lines) {
+  const parsed = lines.map(parseLogcatLine)
+  const crashes = []
+
+  for (let i = 0; i < parsed.length; i++) {
+    const head = /Unhandled Exception:\s*(.*)$/.exec(parsed[i].message)
+    if (!head) continue
+
+    const crash = {
+      index: i,
+      kind: 'dart',
+      // Dart has no per-crash thread banner the way AndroidRuntime prints one.
+      thread: null,
+      process: null,
+      pid: parsed[i].pid,
+      timestamp: parsed[i].timestamp,
+      exception: null,
+      message: null,
+      frames: [],
+      causes: [],
+      raw: [parsed[i].raw],
+    }
+
+    const split = splitDartException(head[1])
+    crash.exception = split.exception
+    crash.message = split.message
+
+    for (let j = i + 1; j < Math.min(parsed.length, i + 400); j++) {
+      const message = parsed[j].message
+      if (message.trim() === '') break
+
+      const frame = parseDartFrame(message)
+      if (frame) {
+        crash.frames.push(frame)
+        crash.raw.push(parsed[j].raw)
+        continue
+      }
+      // Continuation markers carry no frame, but they belong to the trace.
+      if (/^<asynchronous suspension>\s*$/.test(message) || /^\.\.\.\s/.test(message)) {
+        crash.raw.push(parsed[j].raw)
+        continue
+      }
+      break
+    }
+
+    if (crash.exception || crash.frames.length > 0) crashes.push(decorateCrash(crash, null))
+  }
+
+  // The same error is often echoed to the `flutter` and crash buffers both.
+  const seen = new Set()
+  const unique = []
+  for (const crash of crashes) {
+    const key = `${crash.exception}|${crash.frames[0]?.uri ?? ''}|${crash.frames[0]?.line ?? ''}|${crash.pid}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    unique.push(crash)
+  }
+  return unique
+}
+
+/**
+ * `IntegerDivisionByZeroException: Division by zero` → type + message.
+ *
+ * Dart exception type names may contain spaces (`Bad state: …`), so this splits
+ * on the first colon rather than on a Java-style qualified-name pattern.
+ */
+function splitDartException(text) {
+  const trimmed = String(text ?? '').trim()
+  if (!trimmed) return { exception: null, message: null }
+  const match = /^([^:]+?)\s*:\s*(.+)$/.exec(trimmed)
+  if (match) return { exception: match[1].trim(), message: match[2].trim() }
+  return { exception: trimmed, message: null }
+}
+
 /** Add the frame a developer should open first. */
 function decorateCrash(crash, pkg) {
   const all = [...crash.frames, ...crash.causes.flatMap((c) => c.frames)]
@@ -403,6 +557,14 @@ function decorateCrash(crash, pkg) {
   return { ...crash, location, headline }
 }
 
+/** One stack frame, in the notation of its own runtime. */
+function frameText(frame) {
+  // A Java frame names a file; a Dart frame names a URI, and the URI is the
+  // useful part (`package:flutter/…` vs the app's own package).
+  const target = frame.dart ? (frame.uri ?? 'dart:unknown') : (frame.file ?? 'Native Method')
+  return `at ${frame.method}(${target}${frame.line ? `:${frame.line}` : ''})`
+}
+
 /** Compact, model-facing rendering of one parsed crash. */
 export function renderCrash(crash) {
   const lines = [`崩溃: ${crash.headline}`]
@@ -417,15 +579,11 @@ export function renderCrash(crash) {
   const frames = crash.frames.slice(0, 8)
   if (frames.length) {
     lines.push('  调用栈:')
-    for (const frame of frames) {
-      lines.push(`    at ${frame.method}(${frame.file ?? 'Native Method'}${frame.line ? `:${frame.line}` : ''})`)
-    }
+    for (const frame of frames) lines.push(`    ${frameText(frame)}`)
   }
   for (const cause of crash.causes) {
     lines.push(`  Caused by: ${cause.exception}${cause.message ? `: ${cause.message}` : ''}`)
-    for (const frame of cause.frames.slice(0, 4)) {
-      lines.push(`    at ${frame.method}(${frame.file ?? 'Native Method'}${frame.line ? `:${frame.line}` : ''})`)
-    }
+    for (const frame of cause.frames.slice(0, 4)) lines.push(`    ${frameText(frame)}`)
   }
   return lines.join('\n')
 }
@@ -450,7 +608,12 @@ export function analyze(lines, options = {}) {
   const { pkg = null, maxFindings = 6 } = options
   const input = Array.isArray(lines) ? lines : String(lines ?? '').split(/\r?\n/)
 
-  const allCrashes = parseCrashBlocks(input, { pkg })
+  const javaCrashes = parseCrashBlocks(input, { pkg })
+  const dartCrashes = parseDartCrashBlocks(input)
+  // Java and Dart crashes are merged by position in the stream rather than by
+  // language: `summary` and `location` describe the first failure, and "first"
+  // has to mean first in time.
+  const allCrashes = [...javaCrashes, ...dartCrashes].sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
   const allTombstones = parseTombstoneBlocks(input)
   const crashes = []
   const tombstones = []
@@ -492,8 +655,10 @@ export function analyze(lines, options = {}) {
     const line = input[i]
     for (const signature of CRASH_SIGNATURES) {
       // A parsed FATAL EXCEPTION is reported through `crashes`, and a parsed
-      // tombstone through `tombstones`; neither is repeated as a raw finding.
-      if (signature.kind === 'java-crash' && allCrashes.length > 0) continue
+      // tombstone through `tombstones`; neither is repeated as a raw finding —
+      // and the same holds for a Dart `Unhandled Exception` block.
+      if (signature.kind === 'java-crash' && javaCrashes.length > 0) continue
+      if (signature.kind === 'dart-crash' && dartCrashes.length > 0) continue
       if (!signature.re.test(line)) continue
 
       const process = findingProcess(input, i)

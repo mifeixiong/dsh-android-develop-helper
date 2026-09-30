@@ -90,6 +90,35 @@ test('matchesSelector supports exact, substring and regex', () => {
   assert.ok(!matchesSelector({ ...button, enabled: false }, { text: '登录' }), 'disabled nodes are excluded by default')
 })
 
+test('matchesSelector treats content-desc as text (Flutter / Compose labels)', () => {
+  // Flutter and Compose publish a control's visible label as `content-desc`
+  // rather than `android:text`. A text selector that ignored it would make
+  // `tap-text` fail on an element `ui` had just printed as `desc="…"` — the tool
+  // contradicting its own output.
+  const xml = `<hierarchy rotation="0">
+    <node class="android.view.View" package="p" bounds="[0,0][720,1280]" enabled="true">
+      <node class="android.widget.Button" package="p" bounds="[520,1180][660,1240]" clickable="true" enabled="true" content-desc="生成值日表" resource-id="btnGenerate" />
+      <node class="android.view.View" package="p" bounds="[0,560][720,620]" enabled="true" content-desc="还没有值日表" resource-id="tvEmpty" />
+    </node>
+  </hierarchy>`
+  const { root } = parseDump(xml)
+  const nodes = flattenDump({ root })
+
+  const button = nodes.find((n) => n.resourceId === 'btnGenerate')
+  assert.ok(matchesSelector(button, { text: '生成值日表' }))
+  assert.ok(matchesSelector(button, { text: '生成值日表', exact: true }))
+  assert.ok(matchesSelector(button, { text: '生成' }), 'substring matching still applies')
+  assert.ok(!matchesSelector(button, { text: '不存在' }))
+  assert.ok(matchesSelector(button, { desc: '生成值日表' }), 'the desc selector still targets content-desc')
+
+  const label = nodes.find((n) => n.resourceId === 'tvEmpty')
+  assert.ok(matchesSelector(label, { text: '还没有值日表' }), 'a non-clickable label matches too')
+
+  // A content-desc label must rank like a text label, so the clickable button
+  // wins over the container that also matches through its descendant.
+  assert.equal(findNodes(nodes, { text: '生成值日表' })[0].resourceId, 'btnGenerate')
+})
+
 test('findNodes prefers the smaller clickable hit', () => {
   const xml = `<hierarchy rotation="0">
     <node class="android.widget.FrameLayout" package="p" bounds="[0,0][720,1280]" clickable="true" enabled="true" text="确定">

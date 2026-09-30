@@ -1,0 +1,22 @@
+name: dorm_duty_flutter
+description: "宿舍值日 — Flutter + Material 3 示例 App，用来验证 dsh-android-develop-helper 能驱动现代 UI 框架，而不只是传统 View。"
+publish_to: none
+version: 1.0.0+1
+
+# No pub dependencies on purpose. Persistence goes through `dart:io` inside the
+# app sandbox and notifications through a small MethodChannel into the Android
+# platform code, so `flutter pub get` never has to reach the network and the
+# example cannot rot because a third-party package moved on.
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

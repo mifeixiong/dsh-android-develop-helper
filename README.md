@@ -319,7 +319,73 @@ $ node bin/android-helper.mjs diagnose com.example.dormduty
 
 ---
 
-## 4. 目录结构
+## 4. 驱动现代 UI 框架（Flutter）
+
+直觉说「Flutter 用 Skia 自绘，`uiautomator` 只能看到一个 `FlutterView`，所以只能坐标点击」。
+这句话只对了一半，而错的那一半决定了这套工具能不能用在新项目上。
+
+Flutter 会把语义树镜像进 Android 的无障碍层级，而
+[`SemanticsProperties.identifier`](https://api.flutter.dev/flutter/semantics/SemanticsProperties/identifier.html)
+的文档写得很直接：
+
+> On Android, this is used for `AccessibilityNodeInfo.setViewIdResourceName`.
+> It'll be appear in accessibility hierarchy as `resource-id`.
+
+所以 `Semantics(identifier: 'tvStatus1', …)` 在 `uiautomator` 眼里就是
+`resource-id="tvStatus1"`，与传统 View 的 `android:id="@+id/tvStatus1"` 走的是同一条路。
+`examples/dorm-duty-flutter/` 把这句话跑成了实测结果：
+
+```
+$ node bin/android-helper.mjs ui --max 40
+#2 View desc="0 / 0" id=tvProgress @114,183
+#6 View desc="还没有值日表" id=tvEmpty @360,590
+#9 Button desc="生成值日表" id=btnGenerate @592,1214
+```
+
+三件事在实测里定了形，都不是推断出来的：
+
+- **文本落在 `content-desc`，不是 `android:text`。** 所以 `text` 选择器现在两者都匹配——
+  否则 `tap-text "生成值日表"` 会找不到一个 `ui` 刚以 `desc="生成值日表"` 打印出来的节点，
+  工具自相矛盾。`desc` 选择器仍然只匹配 content-desc。
+- **`Text` 不创建自己的语义节点**，它的 label 会落到最近的语义祖先上，也就是带 identifier 的
+  那个节点，所以文本行不必额外写 `label`。按钮**会**创建自己的节点，示例里用
+  `Semantics(identifier: …, label: …, excludeSemantics: true)` 把文案收回同一个节点；
+  否则 identifier 所在节点点得中却读不到字。
+- **Flutter 只上报屏幕内的语义节点。** 滚出视口的控件在无障碍树里**根本不存在**，不是被标记成
+  不可见——`ui --no-compressed` 也拿不到。所以对 Flutter 界面，「先滚动再定位」不是优化，
+  而是唯一可行的顺序；`scrollTo` 就是干这个的。
+
+### Dart 崩溃的定位方式不一样
+
+Java 的崩溃是 `FATAL EXCEPTION`，进程会死；Dart 的未捕获异常走 `flutter` 标签，**进程不死**，
+而且行号只在 debug 构建里存在：
+
+| 构建 | 日志里有什么 |
+| --- | --- |
+| debug（JIT） | `Unhandled Exception: IntegerDivisionByZeroException` + `#1 splitBill (package:…/duty.dart:48:58)` |
+| profile（AOT） | 异常和帧都在，但帧被 AOT 内联成 `_splitBill (package:…/duty_page.dart)`——**没有行号** |
+| release | 只有异常类型，没有 Dart 栈 |
+
+`logcat.js` 为此有一条独立的解析路径：帧是 `package:` URI 而不是文件名，
+`package:flutter/…` 算框架、`package:<应用>/…` 才算应用代码。实测输出：
+
+```
+崩溃: IntegerDivisionByZeroException
+  定位: duty.dart:48  ← splitBill
+  调用栈:
+    at splitBill(package:dorm_duty_flutter/duty.dart:48)
+```
+
+`diagnose` 报出的行号会被测试拿回源码里核对——断言 `lib/duty.dart` 第 48 行确实是那个除法表达式。
+
+示例 App 的 `lib/main.dart` 里有一段 `FlutterError.onError` 上报，把未捕获错误的完整堆栈经
+`debugPrint` 写到同一个 tag 上。这不是绕路：Flutter 自己的输出在三种构建下分别是「什么都不打」
+「没有行号」「只有类型」，而这段钩子让三种情况都能被定位，形状也与任何上线 App 的错误上报一致。
+它同时把框架断言（`FlutterError`）标成 `Framework error:`，不与真正的未捕获异常混为一谈。
+
+---
+
+## 5. 目录结构
 
 ```
 dsh-android-develop-helper/
@@ -339,7 +405,7 @@ dsh-android-develop-helper/
 │   ├── input.js               # tap / swipe / scroll / text / key（含双层 shell 转义）
 │   ├── app.js                 # 安装（含校验与输出判定）/ 启动 / 停止 / 包信息 / 授权
 │   ├── apk.js                 # ZIP 定位 + AXML 解析（免 aapt）
-│   ├── logcat.js              # 过滤 + 崩溃解析（FATAL EXCEPTION / tombstone / ANR）+ 源码行定位
+│   ├── logcat.js              # 过滤 + 崩溃解析（Java FATAL EXCEPTION / Dart / tombstone / ANR）+ 行号定位
 │   ├── tools.js               # 九个 {name, description, parameters, output, execute}
 │   ├── plugin.js              # Cordis Host 插件：注册到 tools 注册表
 │   └── index.js               # 公共 API
@@ -348,11 +414,12 @@ dsh-android-develop-helper/
 │   ├── build-apk.mjs          # 免 Gradle 构建：aapt2 → javac → d8 → 自研打包 → apksigner
 │   ├── sdk-urls.mjs           # 解析当前 SDK 包下载地址
 │   └── probe-device.mjs       # 逐项排查单个 serial
-├── examples/dorm-duty/        # 示例 App：Java + 传统 View，控件全部带显式 android:id
+├── examples/dorm-duty/        # 示例 App：Java + 传统 View，控件全部带 android:id（免 Gradle 构建）
+├── examples/dorm-duty-flutter/# 示例 App：Dart + Flutter + Material 3，控件带 Semantics identifier
 ├── cordis.patch.yml           # bundle 补丁层：插入插件行（由 package.json 声明）
 ├── SKILL.md                   # 文件系统技能，随仓库一起分发
 ├── .github/workflows/ci.yml   # 单元测试 + bundle 清单自检
-├── test/                      # 131 个单元测试 + 14 个真机测试
+├── test/                      # 142 个单元测试 + 18 个真机测试
 ├── artifacts/                 # 每次运行的日志、截图、UI dump（不入库）
 └── config.json                # 可选覆盖（默认不存在，不入库）
 ```
@@ -361,7 +428,7 @@ dsh-android-develop-helper/
 
 ---
 
-## 5. 验证
+## 6. 验证
 
 单元测试与设备无关，CI（`.github/workflows/ci.yml`）在 ubuntu 与 windows 两个 runner 上跑它们
 （Node 20 / 22），并额外做一次 bundle 清单自检：`dsh.bundle.patch` 指向的文件必须存在，
@@ -369,10 +436,12 @@ dsh-android-develop-helper/
 但一个工具都不注册，这两项检查就是拦它的。
 
 ```powershell
-npm test          # 131 个单元测试，不需要模拟器
+npm test          # 142 个单元测试，不需要模拟器
 npm run test:live # 9 个集成测试，对着真实模拟器跑；没有设备时自动 skip
 npm run test:e2e  # 2 个端到端测试：完整跑一遍验证 App
 npm run test:crash # 3 个测试：制造异常 → Logcat 解析 → 定位到源码行
+npm run test:flutter       # 2 个端到端测试：按 id 驱动 Flutter 示例（profile APK）
+npm run test:flutter:crash # 2 个测试：Dart 异常 → 解析 package: URI → 核对 duty.dart 的行号（debug APK）
 ```
 
 单元测试覆盖：XML/AXML 解析、UI 树查询与精简、原始 framebuffer 解码（12/16 字节头）、
@@ -407,17 +476,24 @@ CLI 参数解析、工具定义（含用 harness 真实的 `assertSupportedJsonS
 最近一次结果：
 
 ```
-unit : 131 pass / 0 fail   (0.4 s)
+unit : 142 pass / 0 fail   (0.4 s)
 live :   9 pass / 0 fail   (25.4 s)
 e2e  :   2 pass / 0 fail   (60.8 s)
 crash:   3 pass / 0 fail   (58.8 s)
+flutter      : 2 pass / 0 fail   (76.3 s)
+flutter:crash: 2 pass / 0 fail   (38.0 s)
 ```
 
 ---
 
-## 6. 已知限制
+## 7. 已知限制
 
-- UI 树只描述原生 view。`WebView` 内部内容需要 CDP，本工具不提供。
+- UI 树描述的是原生 view 以及框架自己发布的语义树。`WebView` 内部内容需要 CDP，本工具不提供；
+  Flutter / Compose 可以，前提是控件带了 identifier（见第 4 节）。
+- **Flutter 只把屏幕内的语义节点报给无障碍树**：滚出视口的控件在里面根本不存在，
+  `ui --no-compressed` 也拿不到。对 Flutter 界面要先 `scroll` 再定位，没有别的顺序。
+- **Dart 的行号只在 debug（JIT）构建里存在**。profile 构建的 AOT 会把帧内联成只剩文件名，
+  release 连栈都没有——要在 Flutter 上报错定位到行，就用 debug 构建。
 - **`ui` 默认只列出"屏幕上可见"的节点**——`uiautomator --compressed` 会过滤掉滚出屏幕的节点，
   于是"这一行不存在"和"这一行在屏幕外"读出来是一样的。需要区分时用 `ui --no-compressed`
   （dump 整棵树，更慢也更大），或先 `scroll` 再 dump。这个坑是端到端测试在模拟器横屏时

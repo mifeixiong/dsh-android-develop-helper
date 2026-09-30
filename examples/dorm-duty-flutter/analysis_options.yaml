@@ -1,0 +1,15 @@
+# Analyzer configuration for this example.
+#
+# Deliberately **no** `include: package:flutter_lints/flutter.yaml`. This example
+# carries no dev dependencies on purpose (see pubspec.yaml), and a lint preset is
+# not worth becoming the only one — `flutter analyze` still reports every error
+# and the analyzer's default warnings.
+#
+# `triggerValidationCrash` in lib/duty.dart reads past the end of a list on
+# purpose: it is the fault the crash test localises, not an oversight.
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+  errors:
+    dead_code: ignore

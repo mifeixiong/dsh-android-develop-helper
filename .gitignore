@@ -11,6 +11,19 @@ config.json
 build/
 examples/*/build/
 
+# Flutter (examples/dorm-duty-flutter).
+# `.dart_tool/` holds pub resolution and build caches; `local.properties` is the
+# per-machine SDK path Gradle needs but nobody else can use; `.flutter-plugins*`
+# is regenerated on every `flutter pub get`.
+.dart_tool/
+examples/*/.dart_tool/
+examples/*/android/.gradle/
+examples/*/android/local.properties
+examples/*/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+examples/*/.flutter-plugins
+examples/*/.flutter-plugins-dependencies
+examples/*/*.iml
+
 # NOTE: examples/*/debug.keystore is committed on purpose.  It is a throwaway
 # debug key, and keeping it fixed is what makes repeated installs work — a fresh
 # key on every build turns the next `adb install` into

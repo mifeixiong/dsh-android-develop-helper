@@ -1,6 +1,6 @@
 {
   "name": "dsh-android-develop-helper",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "ADB-driven Android emulator automation that lets an AI agent develop, debug, test and localize errors in Android apps. Multi-emulator (MuMu / LDPlayer / Nox / AVD / custom) with configurable ADB ports. Installable as a dsh/Cordis bundle, or usable as a standalone CLI.",
   "type": "module",
   "license": "MIT",
@@ -44,6 +44,8 @@
     "test:live": "node --test test/live.live.mjs",
     "test:e2e": "node --test test/dorm-duty.live.mjs",
     "test:crash": "node --test test/crash.live.mjs",
+    "test:flutter": "node --test test/dorm-duty-flutter.live.mjs",
+    "test:flutter:crash": "node --test test/dorm-duty-flutter-crash.live.mjs",
     "test:all": "node --test --test-concurrency=1 test/*.test.mjs test/live.live.mjs test/dorm-duty.live.mjs test/crash.live.mjs",
     "sdk": "node tools/install-sdk.mjs",
     "build:example": "node tools/build-apk.mjs --project examples/dorm-duty",

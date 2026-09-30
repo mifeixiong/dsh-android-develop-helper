@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   parseLogcatLine,
   parseCrashBlocks,
+  parseDartCrashBlocks,
   parseTombstoneBlocks,
   analyze,
   renderCrash,
@@ -351,4 +352,123 @@ test('describeProcess distinguishes running, watched-death and already-gone', ()
   assert.match(describeProcess({ running: false, pidBefore: 10, pidAfter: null }), /pid 10 → 已退出（进程已死亡）/)
   // The usual case: diagnose runs after the crash, so both samples are empty.
   assert.match(describeProcess({ running: false, pidBefore: null, pidAfter: null }), /未运行（可能已崩溃）/)
+})
+
+// ── Flutter / Dart ──────────────────────────────────────────────────────────
+//
+// Flutter reports an uncaught Dart error on the `flutter` tag with its own frame
+// format. The frame to open is the first one from the app's own package — and
+// because the Dart package name (`dorm_duty`) is not the Android one
+// (`com.example.dormduty`), that choice is made from the URI, not from `pkg`.
+
+const F = '09-30 10:12:34.567  8123  8156 E flutter : '
+
+const DART_DIVIDE_BY_ZERO = [
+  `${F}[ERROR:flutter/runtime/dart_vm_initializer.cc(41)] Unhandled Exception: IntegerDivisionByZeroException: Division by zero`,
+  `${F}#0      splitBill (package:dorm_duty/duty.dart:42:9)`,
+  `${F}#1      _DutyPageState._onSplit.<anonymous closure> (package:dorm_duty/main.dart:118:21)`,
+  `${F}#2      _InkResponseState.handleTap (package:flutter/src/material/ink_well.dart:1175:21)`,
+  `${F}#3      _rootRun (dart:async/zone.dart:1434:12)`,
+  `${F}<asynchronous suspension>`,
+]
+
+test('parseDartCrashBlocks reads the exception and every frame', () => {
+  const [crash] = parseDartCrashBlocks(DART_DIVIDE_BY_ZERO)
+  assert.equal(crash.kind, 'dart')
+  assert.equal(crash.exception, 'IntegerDivisionByZeroException')
+  assert.equal(crash.message, 'Division by zero')
+  assert.equal(crash.frames.length, 4)
+  assert.equal(crash.frames[0].method, 'splitBill')
+  assert.equal(crash.frames[0].uri, 'package:dorm_duty/duty.dart')
+  assert.equal(crash.frames[0].file, 'duty.dart')
+  assert.equal(crash.frames[0].line, 42)
+  assert.equal(crash.frames[0].column, 9)
+  // A Dart function name is not an identifier chain: it can contain spaces.
+  assert.equal(crash.frames[1].method, '_DutyPageState._onSplit.<anonymous closure>')
+  assert.equal(crash.frames[3].uri, 'dart:async/zone.dart')
+})
+
+test('parseDartCrashBlocks stops the trace at the first non-frame line', () => {
+  const [crash] = parseDartCrashBlocks([...DART_DIVIDE_BY_ZERO, `${F}Some later log line`])
+  assert.equal(crash.frames.length, 4)
+  assert.ok(!crash.raw.some((line) => line.includes('Some later log line')))
+})
+
+test('the Dart location is the first app frame, not the SDK frames around it', () => {
+  const [crash] = parseDartCrashBlocks(DART_DIVIDE_BY_ZERO)
+  assert.equal(crash.location.file, 'duty.dart')
+  assert.equal(crash.location.line, 42)
+  assert.match(crash.location.method, /splitBill$/)
+  assert.equal(crash.location.fromCause, null)
+})
+
+test('an SDK frame above an app frame does not become the location', () => {
+  const [crash] = parseDartCrashBlocks([
+    `${F}Unhandled Exception: Bad state: No element`,
+    `${F}#0      _InkResponseState.handleTap (package:flutter/src/material/ink_well.dart:1175:21)`,
+    `${F}#1      _DutyPageState.build (package:dorm_duty/main.dart:88:5)`,
+  ])
+  // Dart type names may contain spaces, so the split is on the first colon.
+  assert.equal(crash.exception, 'Bad state')
+  assert.equal(crash.message, 'No element')
+  assert.equal(crash.location.file, 'main.dart')
+  assert.equal(crash.location.line, 88)
+})
+
+test('a Dart error with no frames still reports a headline', () => {
+  // What a release build prints: the error, with no Dart stack to parse.
+  const [crash] = parseDartCrashBlocks([`${F}Unhandled Exception: Null check operator used on a null value`])
+  assert.equal(crash.exception, 'Null check operator used on a null value')
+  assert.equal(crash.frames.length, 0)
+  assert.equal(crash.location, null)
+  assert.match(crash.headline, /Null check operator/)
+})
+
+test('a Dart frame with a URI but no line still counts as a frame', () => {
+  const [crash] = parseDartCrashBlocks([
+    `${F}Unhandled Exception: StateError: boom`,
+    `${F}#0      _start (package:dorm_duty/main.dart)`,
+  ])
+  assert.equal(crash.frames[0].uri, 'package:dorm_duty/main.dart')
+  assert.equal(crash.frames[0].file, 'main.dart')
+  assert.equal(crash.frames[0].line, null)
+})
+
+test('a URI that names no file cannot be a source location', () => {
+  const [crash] = parseDartCrashBlocks([
+    `${F}Unhandled Exception: StateError: boom`,
+    `${F}#0      _start (dart:core)`,
+  ])
+  assert.equal(crash.frames[0].file, null)
+  assert.equal(crash.location, null)
+})
+
+test('analyze reports a Dart crash instead of re-reporting it as a finding', () => {
+  const verdict = analyze(DART_DIVIDE_BY_ZERO)
+  assert.equal(verdict.crashed, true)
+  assert.equal(verdict.crashes.length, 1)
+  assert.equal(verdict.findings.filter((f) => f.kind === 'dart-crash').length, 0)
+  assert.match(verdict.summary, /IntegerDivisionByZeroException.*duty\.dart:42/)
+  assert.equal(verdict.location.file, 'duty.dart')
+})
+
+test('analyze orders a Java and a Dart crash by where they appear in the stream', () => {
+  const javaFirst = analyze([...DIVIDE_BY_ZERO, ...DART_DIVIDE_BY_ZERO])
+  assert.equal(javaFirst.crashes.length, 2)
+  assert.equal(javaFirst.crashes[0].kind, 'java')
+  assert.equal(javaFirst.location.file, 'MainActivity.java')
+
+  // The reverse order must flip which crash the summary describes.
+  const dartFirst = analyze([...DART_DIVIDE_BY_ZERO, ...DIVIDE_BY_ZERO])
+  assert.equal(dartFirst.crashes[0].kind, 'dart')
+  assert.equal(dartFirst.location.file, 'duty.dart')
+})
+
+test('renderCrash renders Dart frames with their URI', () => {
+  const [crash] = parseDartCrashBlocks(DART_DIVIDE_BY_ZERO)
+  const text = renderCrash(crash)
+  assert.match(text, /IntegerDivisionByZeroException: Division by zero/)
+  assert.match(text, /定位: duty\.dart:42/)
+  assert.match(text, /at splitBill\(package:dorm_duty\/duty\.dart:42\)/)
+  assert.match(text, /at _InkResponseState\.handleTap\(package:flutter/)
 })

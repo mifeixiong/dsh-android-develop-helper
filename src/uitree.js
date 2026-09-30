@@ -240,7 +240,12 @@ export function matchesSelector(node, selector = {}) {
   if (visibleOnly && (!node.bounds || node.bounds.width <= 0 || node.bounds.height <= 0)) return false
   if (id && !matchField([node.resourceId, shortId(node.resourceId)], id, false)) return false
   if (className && !matchField([node.className, classAlias(node.className)], className, false)) return false
-  if (text && !matchField([node.text], text, exact)) return false
+  // `text` also matches `content-desc`. A Flutter (and Compose) screen puts a
+  // control's visible label there instead of in `android:text`, so matching only
+  // the latter makes `tap-text "生成值日表"` fail on an element that `ui` just
+  // printed as `desc="生成值日表"` — the tool contradicting its own output. The
+  // `desc` selector remains the way to target content-desc specifically.
+  if (text && !matchField([node.text, node.contentDesc], text, exact)) return false
   if (desc && !matchField([node.contentDesc, node.hint], desc, exact)) return false
   return true
 }
@@ -277,7 +282,9 @@ export function findNodes(nodes, selector = {}) {
 function score(node, wantClickable) {
   let value = 0
   if (wantClickable && node.clickable) value += 1000
-  if (node.text) value += 20
+  // Either field carries a readable label, and both are matched by the `text`
+  // selector, so both should rank the node the same way.
+  if (node.text || node.contentDesc) value += 20
   if (node.resourceId) value += 10
   const area = node.bounds ? node.bounds.width * node.bounds.height : 1e9
   value -= Math.min(area / 1000, 500) // prefer the smaller, innermost hit

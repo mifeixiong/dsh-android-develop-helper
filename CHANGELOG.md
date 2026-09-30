@@ -4,6 +4,49 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-09-30
+
+### Added
+
+- **Flutter support.** `examples/dorm-duty-flutter/` is the same dorm-duty app
+  rewritten in Dart + Material 3, with a `Semantics(identifier: …)` on every
+  interactive control. Flutter maps that identifier onto
+  `AccessibilityNodeInfo.setViewIdResourceName`, so `ui` lists the control with a
+  `resource-id` and `tap-id` taps it — the same path a classic View app takes.
+  The assumption that a self-drawn UI can only be driven by coordinates was half
+  wrong, and the wrong half is the half that mattered.
+- **Dart crash localisation.** `logcat.js` gained a second parser for
+  `Unhandled Exception` blocks on the `flutter` tag, whose frames are `package:`
+  URIs rather than file names. `diagnose` reports `duty.dart:48` instead of
+  nothing, and `analyze` merges Java and Dart crashes in stream order so
+  `summary` still describes whichever failed first.
+- `npm run test:flutter` and `npm run test:flutter:crash`: end-to-end and crash
+  tests against the Flutter example. The crash test reads the line `diagnose`
+  reports out of `lib/duty.dart` and asserts it really is the division.
+
+### Changed
+
+- **The `text` selector now matches `content-desc` too.** Flutter and Compose
+  publish a control's label there rather than in `android:text`, so a text
+  selector that ignored it refused to find an element `ui` had just printed —
+  the tool contradicting its own output. `desc` still targets `content-desc`
+  specifically, and `findNodes` ranks either field the same way.
+- `renderCrash` prints each frame in its own runtime's notation: a Dart frame
+  with its `package:` URI, a Java frame with its file name.
+
+### Notes
+
+- Flutter publishes semantics nodes **only for what is on screen**. A control
+  scrolled out of view is absent from the tree rather than marked invisible, so
+  on a Flutter screen the order is scroll, then search — `--no-compressed` does
+  not bring it back.
+- Dart line numbers exist only in a **debug (JIT)** build. A profile build's AOT
+  inliner collapses the failing call into a frame with no line; a release build
+  logs no Dart stack at all. The example's `FlutterError.onError` hook is what
+  makes a stack reach logcat in the first place when no VM service is attached.
+- CI is unchanged — the Flutter suites need a Flutter SDK and a device, so they
+  run locally alongside the other live tests.
+
 ## [1.1.1] — 2026-09-30
 
 Two defects found by the workflow's first real run — both invisible on the

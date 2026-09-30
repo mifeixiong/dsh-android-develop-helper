@@ -1,5 +1,10 @@
 # 宿舍值日提醒 (dorm-duty)
 
+> 姊妹示例：[`../dorm-duty-flutter/`](../dorm-duty-flutter/README.md) 是同一个 App 的
+> Flutter + Material 3 版本。两者用途不同——这一份证明「没有 Gradle/Flutter 的机器上也能
+> 构建并驱动一个 App」，那一份证明「现代自绘 UI 框架同样能被按 id 驱动」。控件命名刻意对齐
+> （`tvName1` / `tvStatus1` / `btnDone1` …），所以测试可以断言同一批选择器。
+
 Phase 3 的验证用 App：不是插件的一部分，而是**用来验证插件**的一段真实安卓程序。
 
 它刻意做得小而完整——一个 Activity、三天功能（值日安排 / 每日提醒 / 完成标记）、零第三方依赖——

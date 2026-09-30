@@ -271,6 +271,46 @@ Three things decide whether the verdict is trustworthy:
 Logs say *where* it broke; the screenshot says *what the user saw*. Read them together — and capture
 the screenshot before restarting the app, because the failing frame is gone afterwards.
 
+### Flutter / Dart apps
+
+**Driving a Flutter UI needs no special handling.** Flutter mirrors its semantics tree into the
+Android accessibility hierarchy, and `Semantics(identifier: 'tvStatus1', …)` becomes
+`AccessibilityNodeInfo.viewIdResourceName` — the `resource-id` that `ui` prints and `tap-id`
+matches. Observed on a real screen:
+
+```
+#2 View desc="0 / 0" id=tvProgress @114,183
+#9 Button desc="生成值日表" id=btnGenerate @592,1214
+```
+
+Three measured differences from a classic View app:
+
+- **The label sits in `content-desc`, not `android:text`.** The `text` selector therefore matches
+  both — otherwise `tap-text` would refuse to find an element `ui` had just printed. `desc` still
+  targets `content-desc` specifically.
+- **Only on-screen semantics nodes are published at all.** A control scrolled out of view is not in
+  the tree — not marked invisible, simply absent, and `--no-compressed` does not bring it back. On a
+  Flutter screen, scroll first and search second; there is no other order.
+- **A Dart error does not kill the process**, so `pid → (gone)` is *not* the evidence it is for
+  Java. `diagnose` parses the Dart stack separately — frames are `package:` URIs, not file names —
+  and reports the first frame from the app's own package:
+
+  ```
+  崩溃: IntegerDivisionByZeroException
+    定位: duty.dart:48  ← splitBill
+    调用栈:
+      at splitBill(package:dorm_duty_flutter/duty.dart:48)
+  ```
+
+  `location.file` is the basename, matching the Java shape, so the same "read line N and check it"
+  habit works.
+
+**Line numbers only exist in a debug (JIT) build.** A profile build prints the exception and the
+frames, but the AOT compiler inlines the failing call away, so the frame reads
+`_splitBill (package:…/duty_page.dart)` with no line; a release build prints no Dart stack at all.
+If a Flutter crash localises to a file but not to a line, that is the reason — rebuild with
+`flutter build apk --debug`.
+
 ## Practical loop
 
 1. `doctor` — confirm the pipeline, and note which emulator/port is in use.
